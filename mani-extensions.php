@@ -351,46 +351,47 @@ class SMSClient implements ISMSClient
      * @param string $message The message to be sent
      */
 
-    public static function sendBulkSms($numbersArray, $message)
-    {
-
-        $curl = curl_init();
-
-        $data = [
-            'from' => SMS_SENDER_ID,
-            'recipients' => $numbersArray,
-            'msg' => $message
-        ];
-
-        $jsonData = json_encode($data);
-
-        curl_setopt_array($curl, [
-            CURLOPT_URL => "https://api.giantsms.com/api/v1/send",
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_POSTFIELDS => $jsonData,
-            CURLOPT_HTTPHEADER => [
-                "Accept: */*",
-                "Authorization: Basic " . SMS_TOKEN . "",
-                "Content-Type: application/json"
-            ],
-        ]);
-
-        $response = curl_exec($curl);
-        $err = curl_error($curl);
-
-        curl_close($curl);
-
-        if ($err) {
-            echo  $err;
-        } else {
-            echo $response;
-        }
-    }
+     public static function sendBulkSms($numbersArray, $message)
+     {
+         $curl = curl_init();
+     
+         $data = [
+             'from' => SMS_SENDER_ID,
+             'recipients' => $numbersArray,
+             'msg' => $message
+         ];
+     
+         $jsonData = json_encode($data);
+     
+         curl_setopt_array($curl, [
+             CURLOPT_URL => "https://api.giantsms.com/api/v1/send",
+             CURLOPT_RETURNTRANSFER => true,
+             CURLOPT_ENCODING => "",
+             CURLOPT_MAXREDIRS => 10,
+             CURLOPT_TIMEOUT => 30,
+             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+             CURLOPT_CUSTOMREQUEST => "POST",
+             CURLOPT_POSTFIELDS => $jsonData,
+             CURLOPT_HTTPHEADER => [
+                 "Accept: */*",
+                 "Authorization: Basic " . SMS_TOKEN . "",
+                 "Content-Type: application/json"
+             ],
+         ]);
+     
+         $response = curl_exec($curl);
+         $err = curl_error($curl);
+     
+         curl_close($curl);
+     
+         if ($err) {
+             return $err;
+         } else {
+             $cleanedResponse = trim($response, " \t\n\r\0\x0BNULL");
+             return $cleanedResponse;
+         }
+     }
+     
     /**
      * Checks the SMS balance
      */

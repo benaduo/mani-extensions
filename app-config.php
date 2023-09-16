@@ -1,6 +1,6 @@
 <?php
 # Global App Constants
-define("APP_URL", "localhost/payment-logger");
+define("APP_URL", "");
 define("APP_LOGO_URL", "assets/images/logo.png");
 define("APP_VERSION", "1.0.0");
 
@@ -23,9 +23,9 @@ define("SMS_SENDER_ID", "");
 define("SMS_TOKEN", "");
 
 # MySql Resource Database Credentials
-define("DB_HOST", 'localhost');
+define("DB_HOST", '127.0.0.1');
 define("IDENTITY_DATABASE", ''); // For Identity Database
-define("RESOURCE_DATABASE", 'payment_logger'); // Change this to your database name
+define("RESOURCE_DATABASE", ''); // Change this to your database name
 define("DB_USERNAME", 'root');
 define("DB_PASSWORD", '');
 

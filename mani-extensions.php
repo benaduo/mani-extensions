@@ -145,9 +145,11 @@ class MySql implements IMySql
         if ($stmt->execute()) {
             $stmt->close();
             return true;
+        } else {
+            $error_message = $stmt->error;
+            $stmt->close();
+            return $error_message;
         }
-        $stmt->close();
-        return false;
     }
 }
 
@@ -296,18 +298,23 @@ class Actions implements IActions
     public static function loadSpinner()
     {
         ob_start();
-        include 'assets/html/spinner.html';
+        include '../mani-extensions/assets/html/spinner.html';
         $content = ob_get_clean();
         return $content;
     }
 
     /**
      * Invokes the SweetAlert2 library and returns the HTML content
+     * @param string $title The title of the alert
+     * @param string $message The message to be displayed
+     * @param string $icon The icon to be displayed (success, error, warning, info, question)
+     * @param string $redirectUrl The URL to redirect to after the alert is closed
+     * @param string $params Optional. Additional parameters to be passed to the SweetAlert2 library
      */
-    public static function showAlert($title, $message, $icon, ...$params)
+    public static function showAlert($title, $message, $icon, $redirectUrl = "", ...$params)
     {
         $params = implode(',', $params);
-        $html = "<script src=\"mani-extensions/assets/sweetalert/sweetalert2.all.min.js\"></script>";
+        $html = "<script src=\"../mani-extensions/assets/sweetalert/sweetalert2.all.min.js\"></script>";
         $html .= "<script>Swal.fire(
             {
                 title: '$title',
@@ -316,15 +323,20 @@ class Actions implements IActions
                 confirmButtonText: 'OK',
                 $params
             }
-        );</script>";
+        ).then(() => {
+            window.location = '$redirectUrl';
+        });</script>";
         return $html;
     }
     /**
      * Invokes a SweetAlert2 confirmation dialog and returns the HTML content
+     * @param string $title The title of the alert
+     * @param string $message The message to be displayed
+     * @param string $confirmCallback The callback function to be executed if the user confirms the action
      */
     public static function confirmAction($title, $message, $confirmCallback)
     {
-        $html = "<script src=\"mani-extensions/assets/sweetalert/sweetalert2.all.min.js\"></script>";
+        $html = "<script src=\"../mani-extensions/assets/sweetalert/sweetalert2.all.min.js\"></script>";
         $html .= "<script>Swal.fire({
             title: '$title',
             text: '$message',
@@ -351,47 +363,47 @@ class SMSClient implements ISMSClient
      * @param string $message The message to be sent
      */
 
-     public static function sendBulkSms($numbersArray, $message)
-     {
-         $curl = curl_init();
-     
-         $data = [
-             'from' => SMS_SENDER_ID,
-             'recipients' => $numbersArray,
-             'msg' => $message
-         ];
-     
-         $jsonData = json_encode($data);
-     
-         curl_setopt_array($curl, [
-             CURLOPT_URL => "https://api.giantsms.com/api/v1/send",
-             CURLOPT_RETURNTRANSFER => true,
-             CURLOPT_ENCODING => "",
-             CURLOPT_MAXREDIRS => 10,
-             CURLOPT_TIMEOUT => 30,
-             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-             CURLOPT_CUSTOMREQUEST => "POST",
-             CURLOPT_POSTFIELDS => $jsonData,
-             CURLOPT_HTTPHEADER => [
-                 "Accept: */*",
-                 "Authorization: Basic " . SMS_TOKEN . "",
-                 "Content-Type: application/json"
-             ],
-         ]);
-     
-         $response = curl_exec($curl);
-         $err = curl_error($curl);
-     
-         curl_close($curl);
-     
-         if ($err) {
-             return $err;
-         } else {
-             $cleanedResponse = trim($response, " \t\n\r\0\x0BNULL");
-             return $cleanedResponse;
-         }
-     }
-     
+    public static function sendBulkSms($numbersArray, $message)
+    {
+        $curl = curl_init();
+
+        $data = [
+            'from' => SMS_SENDER_ID,
+            'recipients' => $numbersArray,
+            'msg' => $message
+        ];
+
+        $jsonData = json_encode($data);
+
+        curl_setopt_array($curl, [
+            CURLOPT_URL => "https://api.giantsms.com/api/v1/send",
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => "POST",
+            CURLOPT_POSTFIELDS => $jsonData,
+            CURLOPT_HTTPHEADER => [
+                "Accept: */*",
+                "Authorization: Basic " . SMS_TOKEN . "",
+                "Content-Type: application/json"
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+        $err = curl_error($curl);
+
+        curl_close($curl);
+
+        if ($err) {
+            return $err;
+        } else {
+            $cleanedResponse = trim($response, " \t\n\r\0\x0BNULL");
+            return $cleanedResponse;
+        }
+    }
+
     /**
      * Checks the SMS balance
      */

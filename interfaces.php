@@ -37,7 +37,7 @@ interface IValidator
 interface IActions
 {
     public static function loadSpinner();
-    public static function showAlert($title, $message, $icon, ...$params);
+    public static function showAlert($title, $message, $icon, $redirectUrl = "", ...$params);
 }
 
 interface ISMSClient

@@ -10,15 +10,16 @@ namespace ManiExtensions;
 require_once 'app-config.php';
 require 'vendor/autoload.php';
 include 'interfaces.php';
+include 'models/GiantSmsResponses.php';
 
 use DateTime;
 use mysqli;
 
 use Mailgun\Mailgun;
-
-use BulkSMS\GiantSMS;
-
-
+use \Curl\Curl;
+use ManiExtensions\Models\BaseResponse;
+use ManiExtensions\Models\SenderIdResponse;
+use ManiExtensions\Models\SingleSmsResponse;
 
 class DateExtension implements IDateExtension
 {
@@ -356,68 +357,190 @@ class Actions implements IActions
 
 class SMSClient implements ISMSClient
 {
+    const API_URL = "https://api.giantsms.com/api/v1";
 
+    private $username;
+    private $password;
+    private $senderId;
+    private $token;
     /**
-     * Sends a bulk SMS to multiple recipient
-     * @param string $numbersArray An array of recipients' phone number
-     * @param string $message The message to be sent
+     * Constructor to initialize the SMSClient with the provided credentials.
+     * @param string $username The username for the SMS API
+     * @param string $password The password for the SMS API
      */
 
-    public static function sendBulkSms($numbersArray, $message)
+    public function __construct($username, $password)
     {
-        $curl = curl_init();
+        if (empty($username) || empty($password)) {
+            throw new \InvalidArgumentException("Username and password cannot be empty.");
+        }
+        $this->username = $username;
+        $this->password = $password;
+        $this->senderId = SMS_SENDER_ID;
+        $this->token = SMS_TOKEN;
+    }
 
-        $data = [
-            'from' => SMS_SENDER_ID,
-            'recipients' => $numbersArray,
-            'msg' => $message
-        ];
+    private function buildUrl($url)
+    {
+        return self::API_URL . '/' . $url;
+    }
 
-        $jsonData = json_encode($data);
+    /**
+     * Retrieves the balance of the SMS account.
+     * @return BaseResponse Returns a BaseResponse object containing the balance information or an error message.
+     */
+    public function balance()
+    {
+        $curl = new Curl();
+        $curl->setBasicAuthentication($this->username, $this->password);
+        $curl->get($this->buildUrl('balance'), array(
+            'username' => $this->username,
+            'password' => $this->password,
+        ));
 
-        curl_setopt_array($curl, [
-            CURLOPT_URL => "https://api.giantsms.com/api/v1/send",
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_POSTFIELDS => $jsonData,
-            CURLOPT_HTTPHEADER => [
-                "Accept: */*",
-                "Authorization: Basic " . SMS_TOKEN . "",
-                "Content-Type: application/json"
-            ],
-        ]);
-
-        $response = curl_exec($curl);
-        $err = curl_error($curl);
-
-        curl_close($curl);
-
-        if ($err) {
-            return $err;
+        if ($curl->error) {
+            return new BaseResponse(['status' => 'false', 'message' => $curl->errorMessage]);
         } else {
-            $cleanedResponse = trim($response, " \t\n\r\0\x0BNULL");
-            return $cleanedResponse;
+            return new BaseResponse($curl->response);
         }
     }
 
     /**
-     * Checks the SMS balance
+     * Retrieves the sender IDs registered with the SMS account.
+     * @return SenderIdResponse Returns a SenderIdResponse object containing the sender IDs or an error message.
      */
-    public static function checkSMSBalance()
+    public function getSenderIds()
     {
-        $sms = new GiantSMS(SMS_API_USERNAME, SMS_API_SECRET);
+        $curl = new Curl();
+        $curl->setBasicAuthentication($this->username, $this->password);
+        $curl->get($this->buildUrl('sender', array(
+            'username' => $this->username,
+            'password' => $this->password,
+        )));
 
-        var_dump($sms->balance());
+        if ($curl->error) {
+            return new SenderIdResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new SenderIdResponse($curl->response);
+        }
+    }
+
+    /**
+     * Checks the status of a message by its ID.
+     * @param string $messageId The ID of the message to check
+     * @return SingleSmsResponse Returns a SingleSmsResponse object containing the message status or an error message.
+     */
+    public function checkMessageStatus($messageId)
+    {
+        $curl = new Curl();
+        $curl->setHeader('Authorization', 'Basic ' . $this->token);
+        $curl->setHeader('Content-Type', 'application/json');
+        $curl->post($this->buildUrl('status'), array(
+            'message_id' => $messageId,
+        ));
+
+        if ($curl->error) {
+            return new SingleSmsResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new SingleSmsResponse($curl->response);
+        }
+    }
+
+    /**
+     * Registers a new sender ID with the SMS account.
+     * @param string $senderId The sender ID to register
+     * @param string $purpose The purpose of the sender ID
+     * @return BaseResponse Returns a BaseResponse object containing the registration status or an error message.
+     */
+    public function registerSenderId($senderId, $purpose)
+    {
+        $curl = new Curl();
+        $curl->setBasicAuthentication($this->username, $this->password);
+        $curl->post($this->buildUrl('sender/register?username=' . $this->username . '&password=' . $this->password), array(
+            'name' => $senderId,
+            'purpose' => $purpose
+        ));
+
+        if ($curl->error) {
+            return new BaseResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new BaseResponse($curl->response);
+        }
+    }
+
+    /**
+     * Sends a single SMS message to a specified number.
+     * @param string $number The recipient's phone number
+     * @param string $message The message to be sent
+     * @return SingleSmsResponse Returns a SingleSmsResponse object containing the message status or an error message.
+     */
+    public function sendSingleSms($number, $message)
+    {
+        $curl = new Curl();
+        $curl->setBasicAuthentication($this->username, $this->password);
+        $curl->post($this->buildUrl('send'), array(
+            'from' => $this->senderId,
+            'to' => $number,
+            'msg' => $message,
+        ));
+
+        if ($curl->error) {
+            return new SingleSmsResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new SingleSmsResponse($curl->response);
+        }
+    }
+
+    /**
+     * Sends a bulk SMS message to multiple recipients.
+     * @param array $numbers An array of recipient phone numbers
+     * @param string $message The message to be sent
+     * @return BaseResponse Returns a BaseResponse object containing the bulk SMS status or an error message.
+     */
+    public function sendBulkSms($numbers, $message)
+    {
+        $curl = new Curl();
+        $curl->setHeader('Authorization', 'Basic ' . $this->token);
+        $curl->post($this->buildUrl('send'), array(
+            'from' => $this->senderId,
+            'recipients' => $numbers,
+            'msg' => $message,
+        ));
+
+        if ($curl->error) {
+            return new BaseResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new BaseResponse($curl->response);
+        }
+    }
+
+    /**
+     * Sends a message using a token for authentication.
+     * @param string $number The recipient's phone number
+     * @param string $message The message to be sent
+     * @return SingleSmsResponse Returns a SingleSmsResponse object containing the message status or an error message.
+     */
+    public function sendMessageWithToken($number, $message)
+    {
+        $curl = new Curl();
+        $curl->setHeader('Authorization', 'Basic ' . $this->token);
+        $curl->post($this->buildUrl('send'), array(
+            'from' => $this->senderId,
+            'to' => $number,
+            'msg' => $message,
+        ));
+
+        if ($curl->error) {
+            return new SingleSmsResponse(['status' => 'false', 'message' => $curl->errorMessage]);
+        } else {
+            return new SingleSmsResponse($curl->response);
+        }
     }
 }
 
 class PostgreSql
 {
-    public static  function createPostgreConnection()
+    public static  function createPostgresConnection()
     {
         $host = "host = " . PG_DB_HOST . "";
         $port = "port = " . PG_DB_PORT . "";

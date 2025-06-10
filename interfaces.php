@@ -42,6 +42,11 @@ interface IActions
 
 interface ISMSClient
 {
-    public static function sendBulkSms($numbersArray, $message);
-    public static function checkSMSBalance();
+    public function registerSenderId($senderId, $purpose);
+    public function checkMessageStatus($messageId);
+    public function sendSingleSms($number, $message);
+    public function sendBulkSms($numbers, $message);
+    public function sendMessageWithToken($number, $message);
+    public function getSenderIds();
+    public function balance();
 }

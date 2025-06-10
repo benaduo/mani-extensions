@@ -18,7 +18,7 @@ define("FROM", "");
 
 # Giant SMS Setting
 define("SMS_API_USERNAME", "");
-define("SMS_API_SECRET", "");
+define("SMS_API_PASSWORD", "");
 define("SMS_SENDER_ID", "");
 define("SMS_TOKEN", "");
 
